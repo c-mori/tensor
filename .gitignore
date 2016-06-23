@@ -4,3 +4,7 @@
 *.iml
 
 .ipynb_checkpoints/tensorflow_tutorials-checkpoint.ipynb
+
+udacity/.ipynb_checkpoints/1_notmnist-checkpoint.ipynb
+
+udacity/notMNIST.pickle
