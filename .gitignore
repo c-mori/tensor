@@ -8,3 +8,7 @@
 udacity/.ipynb_checkpoints/1_notmnist-checkpoint.ipynb
 
 udacity/notMNIST.pickle
+
+udacity/.ipynb_checkpoints/2_fullyconnected-checkpoint.ipynb
+
+*.pkl
