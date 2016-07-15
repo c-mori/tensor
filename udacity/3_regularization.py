@@ -69,8 +69,8 @@ print('Test set', test_dataset.shape, test_labels.shape)
 
 # In[5]:
 
-def accuracy(predictions, labels):
-    return 100.0 * np.sum(np.argmax(predictions, 1) == np.argmax(labels, 1)) / predictions.shape[0]
+def accuracy(predicts, labels):
+    return 100.0 * np.sum(np.argmax(predicts, 1) == np.argmax(labels, 1)) / predicts.shape[0]
 
 batch_size = 64
 h0 = 256
