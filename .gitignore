@@ -12,3 +12,15 @@ udacity/notMNIST.pickle
 udacity/.ipynb_checkpoints/2_fullyconnected-checkpoint.ipynb
 
 *.pkl
+
+checkpoint
+
+data-1999
+
+data-999
+
+*.meta
+
+*.gz
+
+data/events.out.tfevents.1468592087.chris-iMac.local
