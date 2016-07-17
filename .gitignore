@@ -24,4 +24,5 @@ data-999
 *.gz
 
 data/events.out.tfevents.1468592087.chris-iMac.local
-.venv
+
+.venv/
