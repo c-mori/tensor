@@ -9,10 +9,10 @@ def rmse(predictions, actual):
     return np.sqrt(sse / float(actual.shape[0]))
 
 n = 2
-hidden = n * 5
+hidden = n * 4
 
 # Generate training data and outputs
-train_x = np.random.normal(size=(20000, n))
+train_x = np.random.normal(size=(100000, n))
 
 mults = np.arange(n) + 1
 bias = -3
@@ -24,9 +24,12 @@ train_y = np.expand_dims(train_y.astype(np.float32), 1)
 # train_x = (9 * train_x + np.random.normal(size=train_x.shape)) / 10
 train_x = train_x.astype(np.float32)
 
-batch_size = 125
-keep_percentage = .5
-learn_rate = 3.5e-4
+# Training parameters:
+batch_size = 50
+epochs = 25
+
+keep_percentage = .75
+learn_rate = 1e-4
 lambda_ = 0
 
 num_labels = train_y.shape[1]
@@ -39,7 +42,6 @@ with graph.as_default():
     tf_train_labels = tf.placeholder(
         tf.float32, shape=(None, num_labels), name='y')
     tf_keep_prob = tf.placeholder(tf.float32, name='keep_rate')
-    tf_tr_dataset = tf.constant(train_x)
 
     # Variables.
     w0 = tf.Variable(tf.truncated_normal([n, hidden]), name='w0')
@@ -60,11 +62,8 @@ with graph.as_default():
     # Predictions
     train_prediction = logits
 
-    tr_preds = tf.nn.relu(tf.matmul(tf_tr_dataset, w0) + b0)
-    tr_preds = tf.nn.dropout(tr_preds, tf_keep_prob)
-    tr_preds = tf.matmul(tr_preds, w1) + b1
-
-num_steps = 125001
+num_steps = int(np.ceil(epochs * float(train_y.shape[0]) / batch_size))
+print("Running %d batches (%d epochs)" % (num_steps, epochs))
 
 with tf.Session(graph=graph) as session:
     tf.initialize_all_variables().run()
@@ -85,16 +84,18 @@ with tf.Session(graph=graph) as session:
             tf_keep_prob: keep_percentage}
         _, l, predictions = session.run(
             [optimizer, loss, train_prediction], feed_dict=feed_dict)
-        if (step % 2000 == 0):
+        if (step % int(np.ceil(float(train_y.shape[0]) / batch_size)) == 0):
             print("Minibatch loss at step %d: %f" % (step, l))
             print("Minibatch RMSE: %.5f" % rmse(predictions, batch_labels))
-            # print("Train set RMSE: %.5f" % rmse(tr_preds.eval(), train_y))
+
+            print("Train set RMSE: %.5f" % rmse(logits.eval(
+                feed_dict={tf_train_dataset: train_x, tf_keep_prob: 1.0}), train_y))
     print("")
     feed_dict = {
         tf_train_dataset: train_x,
         tf_keep_prob: 1.0}
     preds = logits.eval(feed_dict=feed_dict)
-    print preds
+    # print preds
 
 print("actual y values:")
 print(train_y)
