@@ -28,3 +28,9 @@ data/events.out.tfevents.1468592087.chris-iMac.local
 .venv/
 
 .venv
+
+*.pyc
+
+.tags
+
+.tags1

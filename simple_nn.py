@@ -9,7 +9,7 @@ def rmse(predictions, actual):
     return np.sqrt(sse / float(actual.shape[0]))
 
 n = 3
-hidden = n * 5
+hidden = n * 3
 
 # Generate training data and outputs
 train_x = np.random.normal(size=(20000, n))
@@ -24,7 +24,7 @@ train_y = np.expand_dims(train_y.astype(np.float32), 1)
 # train_x = (9 * train_x + np.random.normal(size=train_x.shape)) / 10
 train_x = train_x.astype(np.float32)
 
-batch_size = 50
+batch_size = 125
 keep_percentage = .5
 learn_rate = 5e-4
 lambda_ = 0
@@ -51,8 +51,8 @@ with graph.as_default():
     logits = tf.nn.relu(tf.matmul(tf_train_dataset, w0) + b0)
     logits = tf.nn.dropout(logits, keep_percentage)
     logits = tf.matmul(logits, w1) + b1
-    loss = tf.reduce_sum(tf.square(
-        logits - tf_train_labels) + lambda_ * (tf.nn.l2_loss(w0) + tf.nn.l2_loss(w1)))
+    loss = (tf.reduce_sum(tf.square(logits - tf_train_labels)) / batch_size +
+            lambda_ * (tf.nn.l2_loss(w0) + tf.nn.l2_loss(w1)))
 
     # Optimizer.
     optimizer = tf.train.AdamOptimizer(learn_rate).minimize(loss)
@@ -63,7 +63,7 @@ with graph.as_default():
     tr_preds = tf.nn.dropout(tr_preds, 1.0)
     tr_preds = tf.matmul(tr_preds, w1) + b1
 
-num_steps = 100001
+num_steps = 10001
 
 with tf.Session(graph=graph) as session:
     tf.initialize_all_variables().run()
@@ -96,5 +96,6 @@ print("\n predictions:")
 print(preds)
 
 plt.scatter(train_y.reshape([-1, 1]), preds.reshape([-1, 1]))
-plt.plot([train_y.min(), train_y.max()], [train_y.min(), train_y.max()], 'k-', lw=2, color='r')
+plt.plot([train_y.min(), train_y.max()], [
+         train_y.min(), train_y.max()], 'k-', lw=2, color='r')
 plt.show()
