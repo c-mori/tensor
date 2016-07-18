@@ -24,7 +24,7 @@ train_y = np.expand_dims(train_y.astype(np.float32), 1)
 # train_x = (9 * train_x + np.random.normal(size=train_x.shape)) / 10
 train_x = train_x.astype(np.float32)
 
-batch_size = 100
+batch_size = 50
 keep_percentage = .5
 learn_rate = 5e-4
 lambda_ = 0
@@ -38,6 +38,7 @@ with graph.as_default():
     tf_train_dataset = tf.placeholder(tf.float32, shape=(batch_size, n))
     tf_train_labels = tf.placeholder(
         tf.float32, shape=(batch_size, num_labels))
+    dropout_keep_prob = tf.placeholder(tf.float32)
     tf_tr_dataset = tf.constant(train_x)
 
     # Variables.
@@ -62,7 +63,7 @@ with graph.as_default():
     tr_preds = tf.nn.dropout(tr_preds, 1.0)
     tr_preds = tf.matmul(tr_preds, w1) + b1
 
-num_steps = 50001
+num_steps = 100001
 
 with tf.Session(graph=graph) as session:
     tf.initialize_all_variables().run()
