@@ -38,6 +38,7 @@ with graph.as_default():
     tf_train_dataset = tf.placeholder(tf.float32, shape=(batch_size, n))
     tf_train_labels = tf.placeholder(
         tf.float32, shape=(batch_size, num_labels))
+    tf_keep_prob = tf.placeholder(tf.float32, name='keep_rate')
     dropout_keep_prob = tf.placeholder(tf.float32)
     tf_tr_dataset = tf.constant(train_x)
 
@@ -49,7 +50,7 @@ with graph.as_default():
 
     # Training computation.
     logits = tf.nn.relu(tf.matmul(tf_train_dataset, w0) + b0)
-    logits = tf.nn.dropout(logits, keep_percentage)
+    logits = tf.nn.dropout(logits, tf_keep_prob)
     logits = tf.matmul(logits, w1) + b1
     loss = (tf.reduce_sum(tf.square(logits - tf_train_labels)) / batch_size +
             lambda_ * (tf.nn.l2_loss(w0) + tf.nn.l2_loss(w1)))
@@ -79,7 +80,9 @@ with tf.Session(graph=graph) as session:
         # The key of the dictionary is the placeholder node of the graph to be fed,
         # and the value is the numpy array to feed to it.
         feed_dict = {
-            tf_train_dataset: batch_data, tf_train_labels: batch_labels}
+            tf_train_dataset: batch_data,
+            tf_train_labels: batch_labels,
+            tf_keep_prob: keep_percentage}
         _, l, predictions = session.run(
             [optimizer, loss, train_prediction], feed_dict=feed_dict)
         if (step % 1000 == 0):
