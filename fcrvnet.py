@@ -9,7 +9,7 @@ class FCRVNet(object):
     def __init__(self, input_factors, output_factors, layer_sizes, activation=None, l2_lambda=0.0):
         self.input_x = tf.placeholder(tf.float32, [None, input_factors], name="input_x")
         self.input_y = tf.placeholder(tf.float32, [None, output_factors], name="input_y")
-        self.keep_prob = tf.placeholder(tf.float32, name="dropout_keep_prob")
+        self.keep_prob = tf.placeholder(tf.float32, [len(layer_sizes)], name="dropout_keep_prob")
 
         if not activation:
             activation = 'relu'
@@ -40,7 +40,7 @@ class FCRVNet(object):
                 else:
                     print "Unknown activation function: %s.  Valid: ['relu', 'sigmoid', 'tanh']" % activation
                     return
-                s = tf.nn.dropout(s, self.keep_prob, name='dropout%s')
+                s = tf.nn.dropout(s, self.keep_prob[i], name='dropout%s')
                 self.signal = s
         with tf.name_scope('output'):
             w = tf.Variable(tf.truncated_normal([layer_sizes[-1], output_factors]), name='w_out')
