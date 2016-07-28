@@ -3,7 +3,7 @@ import tensorflow as tf
 
 class FCRVNet(object):
     """
-    A fully connected neuaral network
+    A fully connected neural network
     """
 
     def __init__(self, input_factors, output_factors, layer_sizes, activation=None, l2_lambda=0.0):
