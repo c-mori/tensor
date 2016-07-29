@@ -1,5 +1,9 @@
-import tensorflow as tf
 import numpy as np
+import os
+import time
+import datetime
+import tensorflow as tf
+from fcrvnet import FCRVNet
 
 
 def rmse(predictions, actual):
@@ -57,5 +61,51 @@ def batch_iter(x, y, batch_size, num_epochs, shuffle=True):
             yield shuffled_data[start_index:end_index]
 
 
-def train():
-    pass
+def train(train_x, train_y, val_x, val_y, layer_sizes, activation=None, learn_rate=1e-3,
+          dropouts=0, l2_lambda=0.0, epochs=100, batch_size=96, shuffle=True, name=None):
+
+    if not isinstance(layer_sizes, list):
+        layer_sizes = [layer_sizes]
+    num_layers = len(layer_sizes)
+    n_in = train_x.shape[1]
+    n_out = train_y.shape[1]
+
+    # set up keep probability vectors for training and evaluation
+    if not isinstance(dropouts, list):
+        dropouts = [dropouts]
+    if len(dropouts) < num_layers:
+        dropouts += [0.0] * (num_layers - 1)
+    keep_probs = [1.0 - d for d in dropouts]
+    keep_all = [1.0] * len(keep_probs)
+
+    # ensure output paths exist
+    if not name:
+        name = 'default'
+    home_path = os.path.join(os.path.expanduser('~'), 'tensorflow_output')
+    if not os.path.exists(home_path):
+        os.mkdir(home_path)
+    home_path = os.path.join(home_path, name)
+    if not os.path.exists(home_path):
+        os.mkdir(home_path)
+    check_path = os.path.join(home_path, 'checkpoints')
+    if not os.path.exists(check_path):
+        os.mkdir(check_path)
+    summary_path = os.path.join(home_path, 'summaries')
+    if not os.path.exists(summary_path):
+        os.mkdir(summary_path)
+
+    with tf.Graph().as_default():
+        sess = tf.Session()
+        with sess.as_default():
+            # build graph
+            nn = FCRVNet(input_factors=n_in,
+                         output_factors=n_out,
+                         layer_sizes=layer_sizes,
+                         activation=activation,
+                         l2_lambda=l2_lambda)
+            # set parameters
+            optimizer = tf.train.AdamOptimizer(learn_rate).minimize(nn.loss)
+            batches = batch_iter(train_x, train_y, batch_size, epochs, shuffle=shuffle)
+
+            # Initialize all variables
+            sess.run(tf.initialize_all_variables())
