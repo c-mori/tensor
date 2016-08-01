@@ -84,7 +84,7 @@ with tf.Session(graph=graph) as session:
             tf_keep_prob: keep_percentage}
         _, l, predictions = session.run(
             [optimizer, loss, train_prediction], feed_dict=feed_dict)
-        if (step % int(np.ceil(float(train_y.shape[0]) / batch_size)) == 0):
+        if step % int(np.ceil(float(train_y.shape[0]) / batch_size)) == 0:
             print("Minibatch loss at step %d: %f" % (step, l))
             print("Minibatch RMSE: %.5f" % rmse(predictions, batch_labels))
 
