@@ -4,12 +4,12 @@ import datetime
 import tensorflow as tf
 
 
-class FCRVNet(object):
+class FCNet(object):
     """
     A fully connected neural network
     """
 
-    def __init__(self, input_factors, output_factors, layer_sizes, activation=None, l2_lambda=0.0):
+    def __init__(self, input_factors, output_factors, layer_sizes, activation=None, l2_lambda=0.0, classify=False):
         self.input_x = tf.placeholder(tf.float32, [None, input_factors], name="input_x")
         self.input_y = tf.placeholder(tf.float32, [None, output_factors], name="input_y")
         self.keep_prob = tf.placeholder(tf.float32, [len(layer_sizes)], name="dropout_keep_prob")
@@ -19,6 +19,8 @@ class FCRVNet(object):
         self.activation = activation
         self.weights = {}
         self.biases = {}
+        self.rmse = tf.constant(0, 'float', name="rmse")
+        self.accuracy = tf.constant(0, 'float', name='accuracy')
 
         l2_loss = tf.constant(0.0)
 
@@ -26,10 +28,10 @@ class FCRVNet(object):
         with tf.name_scope("inputs"):
             s = self.input_x
         for i, layer_size in enumerate(layer_sizes[1:]):
-            print "i: %d" % i
-            print "layer size: % d" % layer_size
             with tf.name_scope("hidden_%s-%s" % (i, layer_size)):
-                w = tf.Variable(tf.truncated_normal([layer_sizes[i], layer_size]), name='w%s' % i)
+                # w = tf.Variable(tf.truncated_normal([layer_sizes[i], layer_size]), name='w%s' % i)
+                w = tf.get_variable(name='w%s' % i, shape=[layer_sizes[i], layer_size],
+                                    initializer=tf.contrib.layers.xavier_initializer())
                 b = tf.Variable(tf.zeros([layer_size]), name='b%s' % i)
                 self.weights['w_h%s' % i] = w
                 self.biases['b_h%s' % i] = b
@@ -45,10 +47,14 @@ class FCRVNet(object):
                 else:
                     print "Unknown activation function: %s.  Valid: ['relu', 'sigmoid', 'tanh']" % activation
                     return
+                if classify:
+                    s = tf.nn.softmax(s, name='softmax%d' % i)
                 s = tf.nn.dropout(s, self.keep_prob[i], name='dropout%s' % i)
                 self.signal = s
         with tf.name_scope('output'):
-            w = tf.Variable(tf.truncated_normal([layer_sizes[-1], output_factors]), name='w_out')
+            # w = tf.Variable(tf.truncated_normal([layer_sizes[-1], output_factors]), name='w_out')
+            w = tf.get_variable(name='w_out', shape=[layer_sizes[-1], output_factors],
+                                initializer=tf.contrib.layers.xavier_initializer())
             b = tf.Variable(tf.zeros([output_factors]), name='b_out')
             self.weights['w_out'] = w
             self.biases['b_out'] = b
@@ -57,11 +63,17 @@ class FCRVNet(object):
             self.predictions = tf.nn.bias_add(tf.matmul(self.signal, w), b)
 
         with tf.name_scope('loss'):
-            loss = tf.square(self.predictions - self.input_y)
-            self.loss = tf.reduce_sum(loss) + l2_lambda * l2_loss
+            if classify:
+                loss = tf.nn.softmax_cross_entropy_with_logits(self.predictions, self.input_y)
+                with tf.name_scope('accuracy'):
+                    correct = tf.equal(self.predictions, tf.cast(tf.argmax(self.input_y, 1), 'float'))
+                    self.accuracy = tf.reduce_mean(tf.cast(correct, "float"), name="accuracy")
+            else:
+                loss = tf.square(self.predictions - self.input_y)
+                with tf.name_scope('rmse'):
+                    self.rmse = tf.sqrt(tf.reduce_mean(loss), name='rmse')
 
-        with tf.name_scope('rmse'):
-            self.rmse = tf.sqrt(tf.reduce_mean(loss), name='rmse')
+            self.loss = tf.reduce_mean(loss) + l2_lambda * l2_loss
 
 
 def rmse(predictions, actual):
@@ -126,7 +138,7 @@ def batch_iter(x, y, batch_size, num_epochs, shuffle=True):
             yield shuffled_data[start_index:end_index]
 
 
-def train(train_x, train_y, val_x, val_y, layer_sizes, activation=None, learn_rate=1e-3,
+def train(train_x, train_y, val_x, val_y, layer_sizes, activation=None, learn_rate=1e-3, classify=False,
           dropouts=0, l2_lambda=0.0, epochs=10, batch_size=96, shuffle=True, name=None,
           eval_every=100, chkpt_every=200):
 
@@ -158,15 +170,19 @@ def train(train_x, train_y, val_x, val_y, layer_sizes, activation=None, learn_ra
     if not os.path.exists(summary_path):
         os.mkdir(summary_path)
 
+    ts = "_" + datetime.datetime.now().isoformat()
+
+    tf.reset_default_graph()
     with tf.Graph().as_default():
         sess = tf.Session()
         with sess.as_default():
             # build graph
-            nn = FCRVNet(input_factors=n_in,
-                         output_factors=n_out,
-                         layer_sizes=layer_sizes,
-                         activation=activation,
-                         l2_lambda=l2_lambda)
+            nn = FCNet(input_factors=n_in,
+                       output_factors=n_out,
+                       layer_sizes=layer_sizes,
+                       activation=activation,
+                       l2_lambda=l2_lambda,
+                       classify=classify)
             # set parameters
             global_step = tf.Variable(0, name="global_step", trainable=False)
             optimizer = tf.train.AdamOptimizer(learn_rate)
@@ -185,13 +201,14 @@ def train(train_x, train_y, val_x, val_y, layer_sizes, activation=None, learn_ra
 
             loss_summary = tf.scalar_summary("loss", nn.loss)
             rmse_summary = tf.scalar_summary("rmse", nn.rmse)
+            acc_summary = tf.scalar_summary("accuracy", nn.accuracy)
 
-            train_summary_op = tf.merge_summary([loss_summary, rmse_summary, grad_summaries_merged])
-            train_summary_dir = os.path.join(summary_path, "train")
+            train_summary_op = tf.merge_summary([loss_summary, rmse_summary, acc_summary, grad_summaries_merged])
+            train_summary_dir = os.path.join(summary_path, "train" + ts)
             train_summary_writer = tf.train.SummaryWriter(train_summary_dir, sess.graph)
 
-            val_summary_op = tf.merge_summary([loss_summary, rmse_summary])
-            val_summary_dir = os.path.join(summary_path, "val")
+            val_summary_op = tf.merge_summary([loss_summary, rmse_summary, acc_summary])
+            val_summary_dir = os.path.join(summary_path, "val" + ts)
             val_summary_writer = tf.train.SummaryWriter(val_summary_dir, sess.graph)
 
             saver = tf.train.Saver(tf.all_variables())
@@ -209,11 +226,14 @@ def train(train_x, train_y, val_x, val_y, layer_sizes, activation=None, learn_ra
                     nn.input_y: y_batch,
                     nn.keep_prob: keep_probs
                 }
-                _, step, summaries, loss, accuracy = sess.run(
-                    [train_op, global_step, train_summary_op, nn.loss, nn.rmse],
+                _, step, summaries, loss, rmse, accuracy = sess.run(
+                    [train_op, global_step, train_summary_op, nn.loss, nn.rmse, nn.accuracy],
                     feed_dict)
                 time_str = datetime.datetime.now().isoformat()
-                print "{}: step {}, train loss {:g}, train rmse {:g}".format(time_str, step, loss, accuracy)
+                if classify:
+                    print "{}: step {}, train loss {:g}, train accuracy {:g}".format(time_str, step, loss, accuracy)
+                else:
+                    print "{}: step {}, train loss {:g}, train rmse {:g}".format(time_str, step, loss, rmse)
                 train_summary_writer.add_summary(summaries, step)
 
             def val_step(x_batch, y_batch, writer=None):
@@ -225,11 +245,14 @@ def train(train_x, train_y, val_x, val_y, layer_sizes, activation=None, learn_ra
                     nn.input_y: y_batch,
                     nn.keep_prob: keep_all
                 }
-                step, summaries, loss, accuracy = sess.run(
-                    [global_step, val_summary_op, nn.loss, nn.rmse],
+                step, summaries, loss, rmse, accuracy = sess.run(
+                    [global_step, val_summary_op, nn.loss, nn.rmse, nn.accuracy],
                     feed_dict)
                 time_str = datetime.datetime.now().isoformat()
-                print "{}: step {}, val loss {:g}, val rmse {:g}".format(time_str, step, loss, accuracy)
+                if classify:
+                    print "{}: step {}, val loss {:g}, val accuracy {:g}".format(time_str, step, loss, accuracy)
+                else:
+                    print "{}: step {}, val loss {:g}, val rmse {:g}".format(time_str, step, loss, rmse)
                 if writer:
                     writer.add_summary(summaries, step)
 
@@ -247,4 +270,11 @@ def train(train_x, train_y, val_x, val_y, layer_sizes, activation=None, learn_ra
                 if current_step % chkpt_every == 0:
                     path = saver.save(sess, check_prefix, global_step=current_step)
                     print "Saved model checkpoint to {}\n".format(path)
+
+
+            print "\nFinal Evaluation:"
+            val_step(val_x, val_y, writer=val_summary_writer)
+            path = saver.save(sess, check_prefix, global_step=current_step)
+            print "Saved final model checkpoint to {}\n".format(path)
+
             print "Done."
