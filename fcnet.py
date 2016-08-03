@@ -142,7 +142,7 @@ def batch_iter(x, y, batch_size, num_epochs, shuffle=True):
 
 def train(train_x, train_y, val_x, val_y, layer_sizes, activation=None, learn_rate=1e-3, classify=False,
           dropouts=0, l2_lambda=0.0, epochs=10, batch_size=96, shuffle=True, name=None,
-          eval_every=100, chkpt_every=200):
+          eval_every=100, chkpt_every=100):
 
     if not isinstance(layer_sizes, list):
         layer_sizes = [layer_sizes]
@@ -154,9 +154,12 @@ def train(train_x, train_y, val_x, val_y, layer_sizes, activation=None, learn_ra
     if not isinstance(dropouts, list):
         dropouts = [dropouts]
     if len(dropouts) < num_layers:
-        dropouts += [0.0] * (num_layers - 1)
+        print num_layers
+        dropouts += [0.0] * (num_layers - len(dropouts))
     keep_probs = [1.0 - d for d in dropouts]
+    print keep_probs
     keep_all = [1.0] * len(keep_probs)
+    print keep_all
 
     # ensure output paths exist
     if not name:
