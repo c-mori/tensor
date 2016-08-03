@@ -2,7 +2,7 @@ import numpy as np
 import os
 import datetime
 import tensorflow as tf
-from fcrvnet import FCRVNet
+from fcnet import FCRVNet
 
 
 def rmse(predictions, actual):

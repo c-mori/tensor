@@ -21,6 +21,7 @@ class FCNet(object):
         self.biases = {}
         self.rmse = tf.constant(0, 'float', name="rmse")
         self.accuracy = tf.constant(0, 'float', name='accuracy')
+        self.logits = None
 
         l2_loss = tf.constant(0.0)
 
@@ -47,8 +48,6 @@ class FCNet(object):
                 else:
                     print "Unknown activation function: %s.  Valid: ['relu', 'sigmoid', 'tanh']" % activation
                     return
-                if classify:
-                    s = tf.nn.softmax(s, name='softmax%d' % i)
                 s = tf.nn.dropout(s, self.keep_prob[i], name='dropout%s' % i)
                 self.signal = s
         with tf.name_scope('output'):
@@ -66,7 +65,9 @@ class FCNet(object):
             if classify:
                 loss = tf.nn.softmax_cross_entropy_with_logits(self.predictions, self.input_y)
                 with tf.name_scope('accuracy'):
-                    correct = tf.equal(self.predictions, tf.cast(tf.argmax(self.input_y, 1), 'float'))
+                    self.logits = self.predictions
+                    self.predictions = tf.nn.softmax(self.predictions, name='softmax%d' %i)
+                    correct = tf.equal(tf.argmax(self.predictions, 1), tf.argmax(self.input_y, 1))
                     self.accuracy = tf.reduce_mean(tf.cast(correct, "float"), name="accuracy")
             else:
                 loss = tf.square(self.predictions - self.input_y)
@@ -101,6 +102,7 @@ def linear_data(examples=100000, inputs=5, outputs=1, val=0., weights=None, bias
 
     if classify:
         y = y > y.mean()
+        y = (np.arange(len(np.unique(y))) == y[:, None]).astype(np.float32)[:, 0]
 
     noise = np.maximum(np.minimum(noise, .99), 0)
     noise = 1 / (1 - noise) - 1
@@ -226,14 +228,14 @@ def train(train_x, train_y, val_x, val_y, layer_sizes, activation=None, learn_ra
                     nn.input_y: y_batch,
                     nn.keep_prob: keep_probs
                 }
-                _, step, summaries, loss, rmse, accuracy = sess.run(
+                _, step, summaries, loss, err, accuracy = sess.run(
                     [train_op, global_step, train_summary_op, nn.loss, nn.rmse, nn.accuracy],
                     feed_dict)
                 time_str = datetime.datetime.now().isoformat()
                 if classify:
                     print "{}: step {}, train loss {:g}, train accuracy {:g}".format(time_str, step, loss, accuracy)
                 else:
-                    print "{}: step {}, train loss {:g}, train rmse {:g}".format(time_str, step, loss, rmse)
+                    print "{}: step {}, train loss {:g}, train rmse {:g}".format(time_str, step, loss, err)
                 train_summary_writer.add_summary(summaries, step)
 
             def val_step(x_batch, y_batch, writer=None):
@@ -245,14 +247,14 @@ def train(train_x, train_y, val_x, val_y, layer_sizes, activation=None, learn_ra
                     nn.input_y: y_batch,
                     nn.keep_prob: keep_all
                 }
-                step, summaries, loss, rmse, accuracy = sess.run(
+                step, summaries, loss, err, accuracy = sess.run(
                     [global_step, val_summary_op, nn.loss, nn.rmse, nn.accuracy],
                     feed_dict)
                 time_str = datetime.datetime.now().isoformat()
                 if classify:
                     print "{}: step {}, val loss {:g}, val accuracy {:g}".format(time_str, step, loss, accuracy)
                 else:
-                    print "{}: step {}, val loss {:g}, val rmse {:g}".format(time_str, step, loss, rmse)
+                    print "{}: step {}, val loss {:g}, val rmse {:g}".format(time_str, step, loss, err)
                 if writer:
                     writer.add_summary(summaries, step)
 
@@ -278,3 +280,4 @@ def train(train_x, train_y, val_x, val_y, layer_sizes, activation=None, learn_ra
             print "Saved final model checkpoint to {}\n".format(path)
 
             print "Done."
+            return nn
