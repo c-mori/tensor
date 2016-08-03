@@ -45,7 +45,7 @@ print('Validation set', valid_dataset.shape, valid_labels.shape)
 # print('Test set', test_dataset.shape, test_labels.shape)
 
 fc.train(x_tr, y_tr, x_vl, y_vl,
-         layer_sizes=[256, 256],
+         layer_sizes=[256, 256, 256],
          epochs=8,
          dropouts=[.325],
          learn_rate=1e-3,
