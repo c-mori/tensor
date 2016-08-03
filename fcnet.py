@@ -154,12 +154,9 @@ def train(train_x, train_y, val_x, val_y, layer_sizes, activation=None, learn_ra
     if not isinstance(dropouts, list):
         dropouts = [dropouts]
     if len(dropouts) < num_layers:
-        print num_layers
         dropouts += [0.0] * (num_layers - len(dropouts))
     keep_probs = [1.0 - d for d in dropouts]
-    print keep_probs
     keep_all = [1.0] * len(keep_probs)
-    print keep_all
 
     # ensure output paths exist
     if not name:
@@ -283,4 +280,3 @@ def train(train_x, train_y, val_x, val_y, layer_sizes, activation=None, learn_ra
             print "Saved final model checkpoint to {}\n".format(path)
 
             print "Done."
-            return nn
