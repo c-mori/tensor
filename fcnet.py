@@ -10,6 +10,15 @@ class FCNet(object):
     """
 
     def __init__(self, input_factors, output_factors, layer_sizes, activation=None, l2_lambda=0.0, classify=False):
+        """
+
+        :param input_factors: number of features in X. (scalar)
+        :param output_factors: number of factors in Y.  if classifying, this is the number of classes. (scalar)
+        :param layer_sizes: list of number of nodes in hidden layers
+        :param activation: one of: ['relu', 'sigmoid', 'tanh'].  defaults to 'relu'
+        :param l2_lambda: lambda value for l2 regularization
+        :param classify: is the network to be used for classification? (boolean)
+        """
         self.input_x = tf.placeholder(tf.float32, [None, input_factors], name="input_x")
         self.input_y = tf.placeholder(tf.float32, [None, output_factors], name="input_y")
         self.keep_prob = tf.placeholder(tf.float32, [len(layer_sizes)], name="dropout_keep_prob")
@@ -82,25 +91,45 @@ class FCNet(object):
 
 
 def rmse(predictions, actual):
+    """ calculate root mean squared error between predictions and actual values
+
+    :param predictions: list/array of predictions
+    :param actual: list/array of ground truth values
+    :return: float
+    """
     sse = np.sum(np.square(predictions - actual))
     return np.sqrt(sse / float(actual.shape[0]))
 
 
 def linear_data(examples=100000, inputs=5, outputs=1, val=0., weights=None, biases=None, noise=0.2, classify=False):
+    """ creates a toy data set
+
+    :param examples: number of examples
+    :param inputs: number of features (will be set to match weights if provided)
+    :param outputs: dimensionality of outputs for real valued data  (will be set to match weights if provided)
+    :param val: size of validation set to be generated (as a percent of the training data)
+    :param weights: a set of weights to be used to create data (defaults to random)
+    :param biases: biases to be used to create data (defaults to random)
+    :param noise: percentage of noise to add to the data
+    :param classify: create labeled data?  if true, returns 2 one-hot encoded labels
+    :return: train_x, train_y, [optionally: val_x, val_y]
+    """
     if weights:
         inputs = weights.shape[0]
+        outputs = weights.shape[1]
 
     examples = int(np.round(examples * (1.0 + val), 0))
 
     x = np.random.uniform(-1., 1., size=(examples, inputs))
 
-    if biases:
-        outputs = biases.shape[1]
-
     if not weights:
         weights = np.random.uniform(-1.0, size=(inputs, outputs))
     if not biases:
         biases = np.random.uniform(-1.0, size=(1, outputs))
+
+    if not weights.shape[1] == biases.shape[1]:
+        print "Weights and biases are not of the same dimensionality (weights.shape[1] <> biases.shape[1])"
+        return
 
     y = np.dot(x, weights) + biases
 
@@ -148,6 +177,26 @@ def train(train_x, train_y, val_x, val_y, layer_sizes, activation=None, learn_ra
           dropouts=0, l2_lambda=0.0, epochs=10, batch_size=96, shuffle=True, name=None,
           eval_every=100, chkpt_every=100):
 
+    """ train a neural network using the FCNet class
+
+    :param train_x: training data X
+    :param train_y: training data y
+    :param val_x: validation data X
+    :param val_y: validation data y
+    :param layer_sizes: number of nodes in hidden layers (list if more than one hidden layer)
+    :param activation: one of: ['relu', 'sigmoid', 'tanh'].  defaults to 'relu'
+    :param learn_rate: initial learning rate
+    :param classify: is the network to be used for classification? (boolean)
+    :param dropouts: dropout rates for hidden layers.  assumes 0 for any layers beyond the values provided.
+        for example: if dropouts =.5 for a 2 layer network, the 2nd layer will have a dropout rate of 0.
+    :param l2_lambda: lambda value for l2 regularization
+    :param epochs: number of passes through the training data
+    :param batch_size: size of patches to be used in batch gradient descent
+    :param shuffle: shuffle data between epochs?  (boolean)
+    :param name: a name for the model.  checkpoints and summaries will be saved to ~/tensorflow_output/name
+    :param eval_every: how many batches between evaluation on validation set
+    :param chkpt_every: how many batches between svaing checkpoints
+    """
     if not isinstance(layer_sizes, list):
         layer_sizes = [layer_sizes]
     num_layers = len(layer_sizes)
