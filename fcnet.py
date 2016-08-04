@@ -30,36 +30,40 @@ class FCNet(object):
             s = self.input_x
         for i, layer_size in enumerate(layer_sizes[1:]):
             with tf.name_scope("hidden_%s-%s" % (i, layer_size)):
-                # w = tf.Variable(tf.truncated_normal([layer_sizes[i], layer_size]), name='w%s' % i)
-                w = tf.get_variable(name='w%s' % i, shape=[layer_sizes[i], layer_size],
+                with tf.variable_scope("hidden_%s-%s" % (i, layer_size)):
+                    # w = tf.Variable(tf.truncated_normal([layer_sizes[i], layer_size]), name='w%s' % i)
+                    w = tf.get_variable(name='w%s' % i, shape=[layer_sizes[i], layer_size],
+                                        initializer=tf.contrib.layers.xavier_initializer())
+                    # b = tf.Variable(tf.zeros([layer_size]), name='b%s' % i)
+                    b = tf.get_variable(name='b%s' % i, initializer=tf.zeros([layer_size]))
+                    self.weights['w_h%s' % i] = w
+                    self.biases['b_h%s' % i] = b
+                    l2_loss += tf.nn.l2_loss(w)
+
+                    s = tf.nn.bias_add(tf.matmul(s, w), b)
+                    if activation == 'relu':
+                        s = tf.nn.relu(s, name='s%s' % i)
+                    elif activation == 'sigmoid':
+                        s = tf.nn.sigmoid(s, name='s%s' % i)
+                    elif activation == 'tanh':
+                        s = tf.nn.tanh(s, name='s%s' % i)
+                    else:
+                        print "Unknown activation function: %s.  Valid: ['relu', 'sigmoid', 'tanh']" % activation
+                        return
+                    s = tf.nn.dropout(s, self.keep_prob[i], name='dropout%s' % i)
+                    self.signal = s
+        with tf.name_scope('output'):
+            with tf.variable_scope('output'):
+                # w = tf.Variable(tf.truncated_normal([layer_sizes[-1], output_factors]), name='w_out')
+                w = tf.get_variable(name='w_out', shape=[layer_sizes[-1], output_factors],
                                     initializer=tf.contrib.layers.xavier_initializer())
-                b = tf.Variable(tf.zeros([layer_size]), name='b%s' % i)
-                self.weights['w_h%s' % i] = w
-                self.biases['b_h%s' % i] = b
+                # b = tf.Variable(tf.zeros([output_factors]), name='b_out')
+                b = tf.get_variable(name='b_out', initializer=tf.zeros([output_factors]))
+                self.weights['w_out'] = w
+                self.biases['b_out'] = b
                 l2_loss += tf.nn.l2_loss(w)
 
-                s = tf.nn.bias_add(tf.matmul(s, w), b)
-                if activation == 'relu':
-                    s = tf.nn.relu(s, name='s%s' % i)
-                elif activation == 'sigmoid':
-                    s = tf.nn.sigmoid(s, name='s%s' % i)
-                elif activation == 'tanh':
-                    s = tf.nn.tanh(s, name='s%s' % i)
-                else:
-                    print "Unknown activation function: %s.  Valid: ['relu', 'sigmoid', 'tanh']" % activation
-                    return
-                s = tf.nn.dropout(s, self.keep_prob[i], name='dropout%s' % i)
-                self.signal = s
-        with tf.name_scope('output'):
-            # w = tf.Variable(tf.truncated_normal([layer_sizes[-1], output_factors]), name='w_out')
-            w = tf.get_variable(name='w_out', shape=[layer_sizes[-1], output_factors],
-                                initializer=tf.contrib.layers.xavier_initializer())
-            b = tf.Variable(tf.zeros([output_factors]), name='b_out')
-            self.weights['w_out'] = w
-            self.biases['b_out'] = b
-            l2_loss += tf.nn.l2_loss(w)
-
-            self.predictions = tf.nn.bias_add(tf.matmul(self.signal, w), b)
+                self.predictions = tf.nn.bias_add(tf.matmul(self.signal, w), b)
 
         with tf.name_scope('loss'):
             if classify:
