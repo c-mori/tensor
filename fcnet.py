@@ -6,7 +6,8 @@ import tensorflow as tf
 
 class FCNet(object):
     """
-    A fully connected neural network
+    A fully connected neural network.
+    Inspired by https://github.com/dennybritz/cnn-text-classification-tf/blob/master/text_cnn.py
     """
 
     def __init__(self, input_factors, output_factors, layer_sizes, activation=None, l2_lambda=0.0, classify=False):
@@ -79,7 +80,7 @@ class FCNet(object):
                 loss = tf.nn.softmax_cross_entropy_with_logits(self.predictions, self.input_y)
                 with tf.name_scope('accuracy'):
                     self.logits = self.predictions
-                    self.predictions = tf.nn.softmax(self.predictions, name='softmax%d' %i)
+                    self.predictions = tf.nn.softmax(self.predictions, name='softmax')
                     correct = tf.equal(tf.argmax(self.predictions, 1), tf.argmax(self.input_y, 1))
                     self.accuracy = tf.reduce_mean(tf.cast(correct, "float"), name="accuracy")
             else:
@@ -249,9 +250,9 @@ def train(train_x, train_y, val_x, val_y, layer_sizes, activation=None, learn_ra
             for g, v in grads_vars:
                 if g is not None:
                     grad_hist_summ = tf.histogram_summary("{}/grad/hist".format(v.name), g)
-                    sparsity_summ = tf.scalar_summary("{}/grad/sparsity".format(v.name), tf.nn.zero_fraction(g))
+                    # sparsity_summ = tf.scalar_summary("{}/grad/sparsity".format(v.name), tf.nn.zero_fraction(g))
                     grad_summary.append(grad_hist_summ)
-                    grad_summary.append(sparsity_summ)
+                    # grad_summary.append(sparsity_summ)
             grad_summaries_merged = tf.merge_summary(grad_summary)
 
             loss_summary = tf.scalar_summary("loss", nn.loss)
@@ -279,11 +280,11 @@ def train(train_x, train_y, val_x, val_y, layer_sizes, activation=None, learn_ra
                 feed_dict = {
                     nn.input_x: x_batch,
                     nn.input_y: y_batch,
-                    nn.keep_prob: keep_probs
-                }
+                    nn.keep_prob: keep_probs}
                 _, step, summaries, loss, err, accuracy = sess.run(
                     [train_op, global_step, train_summary_op, nn.loss, nn.rmse, nn.accuracy],
-                    feed_dict)
+                    feed_dict
+                    )
                 time_str = datetime.datetime.now().isoformat()
                 if classify:
                     print "{}: step {}, train loss {:g}, train accuracy {:g}".format(time_str, step, loss, accuracy)
@@ -299,7 +300,7 @@ def train(train_x, train_y, val_x, val_y, layer_sizes, activation=None, learn_ra
                     nn.input_x: x_batch,
                     nn.input_y: y_batch,
                     nn.keep_prob: keep_all
-                }
+                    }
                 step, summaries, loss, err, accuracy = sess.run(
                     [global_step, val_summary_op, nn.loss, nn.rmse, nn.accuracy],
                     feed_dict)
@@ -313,6 +314,7 @@ def train(train_x, train_y, val_x, val_y, layer_sizes, activation=None, learn_ra
 
             # generate batches and loop through training
             batches = batch_iter(train_x, train_y, batch_size, epochs, shuffle=shuffle)
+            current_step = 0
             for batch in batches:
                 batch_x, batch_y = (np.array(i) for i in zip(*batch))
                 # run train operation
@@ -325,7 +327,6 @@ def train(train_x, train_y, val_x, val_y, layer_sizes, activation=None, learn_ra
                 if current_step % chkpt_every == 0:
                     path = saver.save(sess, check_prefix, global_step=current_step)
                     print "Saved model checkpoint to {}\n".format(path)
-
 
             print "\nFinal Evaluation:"
             val_step(val_x, val_y, writer=val_summary_writer)
