@@ -228,8 +228,8 @@ def train(train_x, train_y, val_x, val_y, layer_sizes, activation=None, learn_ra
 
     ts = "_" + datetime.datetime.now().isoformat()
 
-    tf.reset_default_graph()
     with tf.Graph().as_default():
+        tf.reset_default_graph()
         sess = tf.Session()
         with sess.as_default():
             # build graph
